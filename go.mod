@@ -1,7 +1,5 @@
 module github.com/namitos/mongow
 
-go 1.14
+go 1.16
 
-require (
-	go.mongodb.org/mongo-driver v1.4.3
-)
+require go.mongodb.org/mongo-driver v1.5.1
