@@ -67,7 +67,13 @@ func Join(input *JoinInput) error {
 		if err != nil {
 			return err
 		}
-		in = append(in, itemField.Interface())
+		if itemField.Kind() == reflect.Slice {
+			for i := 0; i < itemField.Len(); i++ {
+				in = append(in, itemField.Index(i).Interface())
+			}
+		} else {
+			in = append(in, itemField.Interface())
+		}
 	}
 	where := bson.M{}
 	where[rFieldInfo.Tag[0]] = bson.M{"$in": in}
@@ -89,6 +95,8 @@ func Join(input *JoinInput) error {
 		joinedItemsK[itemFieldKey.Interface()] = append(joinedItemsK[itemFieldKey.Interface()], item)
 	}
 
+	asSlice := asFieldInfo.Field.Type.Kind() == reflect.Slice
+
 	for i := 0; i < srcSR.SliceV.Len(); i++ {
 		item := srcSR.SliceV.Index(i)
 		itemFieldToJoin, err := getFieldByName(item, as)
@@ -99,17 +107,34 @@ func Join(input *JoinInput) error {
 		if err != nil {
 			return err
 		}
-		jLen := len(joinedItemsK[itemFieldKey.Interface()])
-		if joinedItemsK[itemFieldKey.Interface()] != nil && jLen > 0 {
-			if asFieldInfo.Field.Type.Kind() == reflect.Slice {
-				itemsToPush := reflect.MakeSlice(asFieldInfo.Field.Type, 0, jLen)
-				for _, v := range joinedItemsK[itemFieldKey.Interface()] {
-					itemsToPush = reflect.Append(itemsToPush, v)
-				}
-				itemFieldToJoin.Set(itemsToPush)
-			} else {
-				itemFieldToJoin.Set(joinedItemsK[itemFieldKey.Interface()][0])
+
+		in := []interface{}{}
+		if itemFieldKey.Kind() == reflect.Slice {
+			for i := 0; i < itemFieldKey.Len(); i++ {
+				in = append(in, itemFieldKey.Index(i).Interface())
 			}
+		} else {
+			in = append(in, itemFieldKey.Interface())
+		}
+		var itemsToPush reflect.Value
+		if asSlice {
+			itemsToPush = reflect.MakeSlice(asFieldInfo.Field.Type, 0, 0)
+		}
+		for _, key := range in {
+			values := joinedItemsK[key]
+			jLen := len(values)
+			if values != nil && jLen > 0 {
+				if asSlice {
+					for _, v := range values {
+						itemsToPush = reflect.Append(itemsToPush, v)
+					}
+				} else {
+					itemFieldToJoin.Set(values[0])
+				}
+			}
+		}
+		if asSlice {
+			itemFieldToJoin.Set(itemsToPush)
 		}
 	}
 	return nil
