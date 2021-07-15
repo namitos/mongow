@@ -196,3 +196,15 @@ func (w *CollectionWrapper) DeleteByID(ctx context.Context, ID primitive.ObjectI
 	})
 	return err
 }
+
+func (w *CollectionWrapper) GetByID(ctx context.Context, result interface{}, ID primitive.ObjectID) error {
+	r := w.Collection.FindOne(ctx, bson.M{"_id": ID})
+	if r.Err() != nil {
+		return r.Err()
+	}
+	err := r.Decode(result)
+	if err != nil {
+		return err
+	}
+	return nil
+}
