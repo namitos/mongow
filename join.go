@@ -75,6 +75,7 @@ func Join(input *JoinInput) error {
 			in = append(in, itemField.Interface())
 		}
 	}
+
 	where := bson.M{}
 	where[rFieldInfo.Tag[0]] = bson.M{"$in": in}
 
@@ -82,39 +83,51 @@ func Join(input *JoinInput) error {
 		return err
 	}
 
+	//indexing read result
 	joinedItemsK := map[interface{}][]reflect.Value{}
 	for i := 0; i < joinedItemsSR.SliceV.Len(); i++ {
 		item := joinedItemsSR.SliceV.Index(i)
-		itemFieldKey, err := getFieldByName(item, r)
+		itemFieldKeyR, err := getFieldByName(item, r)
 		if err != nil {
 			return err
 		}
-		if joinedItemsK[itemFieldKey.Interface()] == nil {
-			joinedItemsK[itemFieldKey.Interface()] = []reflect.Value{}
+		if itemFieldKeyR.Kind() == reflect.Slice {
+			for i := 0; i < itemFieldKeyR.Len(); i++ {
+				key := itemFieldKeyR.Index(i).Interface()
+				if joinedItemsK[key] == nil {
+					joinedItemsK[key] = []reflect.Value{}
+				}
+				joinedItemsK[key] = append(joinedItemsK[key], item)
+			}
+		} else {
+			key := itemFieldKeyR.Interface()
+			if joinedItemsK[key] == nil {
+				joinedItemsK[key] = []reflect.Value{}
+			}
+			joinedItemsK[key] = append(joinedItemsK[key], item)
 		}
-		joinedItemsK[itemFieldKey.Interface()] = append(joinedItemsK[itemFieldKey.Interface()], item)
 	}
 
+	//
 	asSlice := asFieldInfo.Field.Type.Kind() == reflect.Slice
-
 	for i := 0; i < srcSR.SliceV.Len(); i++ {
 		item := srcSR.SliceV.Index(i)
 		itemFieldToJoin, err := getFieldByName(item, as)
 		if err != nil {
 			return err
 		}
-		itemFieldKey, err := getFieldByName(item, l)
+		itemFieldKeyL, err := getFieldByName(item, l)
 		if err != nil {
 			return err
 		}
 
 		in := []interface{}{}
-		if itemFieldKey.Kind() == reflect.Slice {
-			for i := 0; i < itemFieldKey.Len(); i++ {
-				in = append(in, itemFieldKey.Index(i).Interface())
+		if itemFieldKeyL.Kind() == reflect.Slice {
+			for i := 0; i < itemFieldKeyL.Len(); i++ {
+				in = append(in, itemFieldKeyL.Index(i).Interface())
 			}
 		} else {
-			in = append(in, itemFieldKey.Interface())
+			in = append(in, itemFieldKeyL.Interface())
 		}
 		var itemsToPush reflect.Value
 		if asSlice {
