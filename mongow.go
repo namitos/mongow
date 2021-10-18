@@ -127,9 +127,7 @@ func (w *CollectionWrapper) Create(ctx context.Context, item interface{}) error 
 
 //Create items
 func (w *CollectionWrapper) CreateMany(ctx context.Context, items []interface{}) ([]interface{}, error) {
-	options := &options.InsertManyOptions{}
-	options.SetOrdered(false)
-	res, err := w.Collection.InsertMany(ctx, items, options)
+	res, err := w.Collection.InsertMany(ctx, items, options.InsertMany().SetOrdered(true))
 	if res != nil {
 		return res.InsertedIDs, err
 	}
@@ -159,34 +157,15 @@ func (w *CollectionWrapper) Read(ctx context.Context, result interface{}, where 
 	if err != nil {
 		return err
 	}
-	i := 0
-	var optionsItem *options.FindOptions
-	if len(optionItems) > 0 {
-		optionsItem = optionItems[0]
-	}
-	cur, err := w.Collection.Find(ctx, where, optionsItem)
+	cur, err := w.Collection.Find(ctx, where, optionItems...)
 	if err != nil {
 		return err
 	}
 	defer cur.Close(ctx)
-	for cur.Next(ctx) {
-		elemp := reflect.New(sr.Type)
-		elempInterface := elemp.Interface()
-		err = cur.Decode(elempInterface)
-		if err != nil {
-			return err
-		}
-		if sr.SliceOfPtrs {
-			sr.SliceV = reflect.Append(sr.SliceV, elemp)
-		} else {
-			sr.SliceV = reflect.Append(sr.SliceV, elemp.Elem())
-		}
-		i++
-	}
-	if err := cur.Err(); err != nil {
+	err = cur.All(ctx, sr.SliceP.Interface())
+	if err != nil {
 		return err
 	}
-	sr.SliceP.Elem().Set(sr.SliceV.Slice(0, i))
 	return nil
 }
 
