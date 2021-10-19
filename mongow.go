@@ -1,4 +1,4 @@
-//mongo driver wrapper with useful methods for my purposes
+// Package mongow mongo driver wrapper with useful methods for my purposes
 package mongow
 
 import (
@@ -26,14 +26,11 @@ func getSliceResult(result interface{}) (*sliceResult, error) {
 		return nil, fmt.Errorf("result argument should be a ptr to slice of structs")
 	}
 	sliceV := sliceP.Elem()
-	var elemType reflect.Type
+	elemType := sliceV.Type().Elem()
 	sliceOfPtrs := false
-	if sliceV.Type().Elem().Kind() == reflect.Ptr {
-		elemType = sliceV.Type().Elem().Elem()
+	if elemType.Kind() == reflect.Ptr {
+		elemType = elemType.Elem()
 		sliceOfPtrs = true
-	} else {
-		elemType = sliceV.Type().Elem()
-		sliceOfPtrs = false
 	}
 	if elemType.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("result argument should be a ptr to slice of structs")
@@ -46,18 +43,18 @@ func getSliceResult(result interface{}) (*sliceResult, error) {
 	}, nil
 }
 
-func getFieldByName(itemValue reflect.Value, name string) (*reflect.Value, error) {
+func getFieldByName(itemValue reflect.Value, name string) (reflect.Value, error) {
 	if itemValue.Kind() != reflect.Ptr {
-		return nil, fmt.Errorf("item should be a ptr to struct")
+		return reflect.Value{}, fmt.Errorf("item should be a ptr to struct")
 	}
 	if itemValue.Elem().Kind() != reflect.Struct {
-		return nil, fmt.Errorf("item should be a ptr to struct")
+		return reflect.Value{}, fmt.Errorf("item should be a ptr to struct")
 	}
 	f := itemValue.Elem().FieldByName(name)
 	if !f.IsValid() {
-		return nil, fmt.Errorf("item should have %v field", name)
+		return reflect.Value{}, fmt.Errorf("item should have %v field", name)
 	}
-	return &f, nil
+	return f, nil
 }
 
 type structFieldInfo struct {
@@ -125,7 +122,7 @@ func (w *CollectionWrapper) Create(ctx context.Context, item interface{}) error 
 	return nil
 }
 
-//Create items
+//CreateMany items
 func (w *CollectionWrapper) CreateMany(ctx context.Context, items []interface{}) ([]interface{}, error) {
 	res, err := w.Collection.InsertMany(ctx, items, options.InsertMany().SetOrdered(true))
 	if res != nil {
@@ -134,7 +131,7 @@ func (w *CollectionWrapper) CreateMany(ctx context.Context, items []interface{})
 	return nil, err
 }
 
-//Read item. don't use when update is concurrent. it overwrites full db record.
+// Update item. don't use when update is concurrent. it overwrites full db record.
 func (w *CollectionWrapper) Update(ctx context.Context, item interface{}) error {
 	f, err := getFieldByName(reflect.ValueOf(item), "ID")
 	if err != nil {

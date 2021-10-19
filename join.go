@@ -34,51 +34,60 @@ func Join(input *JoinInput) error {
 		return fmt.Errorf("Field required")
 	}
 
-	as := input.Field
+	asKey := input.Field
 
-	srcSR, err := getSliceResult(input.Src)
+	lItems, err := getSliceResult(input.Src)
 	if err != nil {
 		return err
 	}
-	asFieldInfo, err := getStructFieldInfo(srcSR, as, false, true)
+
+	asFieldInfo, err := getStructFieldInfo(lItems, asKey, false, true)
 	if err != nil {
 		return err
 	}
-	l := asFieldInfo.L
-	r := asFieldInfo.R
-	_, err = getStructFieldInfo(srcSR, l, false, false)
+	asSlice := asFieldInfo.Field.Type.Kind() == reflect.Slice
+	lKey := asFieldInfo.L
+	rKey := asFieldInfo.R
+
+	lFieldInfo, err := getStructFieldInfo(lItems, lKey, false, false)
 	if err != nil {
 		return err
 	}
+	lSlice := lFieldInfo.Field.Type.Kind() == reflect.Slice
 
 	joinedItemsSR, err := getSliceResult(input.JoinedItems)
 	if err != nil {
 		return err
 	}
-	rFieldInfo, err := getStructFieldInfo(joinedItemsSR, r, true, false)
+	rFieldInfo, err := getStructFieldInfo(joinedItemsSR, rKey, true, false)
 	if err != nil {
 		return err
 	}
+	rSlice := rFieldInfo.Field.Type.Kind() == reflect.Slice
 
-	in := []interface{}{}
-	for i := 0; i < srcSR.SliceV.Len(); i++ {
-		item := srcSR.SliceV.Index(i)
-		itemField, err := getFieldByName(item, l)
+	//getting all keys
+	var lKeys []interface{}
+	for i := 0; i < lItems.SliceV.Len(); i++ {
+		item := lItems.SliceV.Index(i)
+		itemField, err := getFieldByName(item, lKey)
 		if err != nil {
 			return err
 		}
-		if itemField.Kind() == reflect.Slice {
+		if lSlice {
 			for i := 0; i < itemField.Len(); i++ {
-				in = append(in, itemField.Index(i).Interface())
+				lKeys = append(lKeys, itemField.Index(i).Interface())
 			}
 		} else {
-			in = append(in, itemField.Interface())
+			lKeys = append(lKeys, itemField.Interface())
 		}
 	}
 
+	//reading
+	if len(lKeys) == 0 {
+		return nil
+	}
 	where := bson.M{}
-	where[rFieldInfo.Tag[0]] = bson.M{"$in": in}
-
+	where[rFieldInfo.Tag[0]] = bson.M{"$in": lKeys}
 	if err := input.Collection.Read(input.Context, input.JoinedItems, where); err != nil {
 		return err
 	}
@@ -87,11 +96,11 @@ func Join(input *JoinInput) error {
 	joinedItemsK := map[interface{}][]reflect.Value{}
 	for i := 0; i < joinedItemsSR.SliceV.Len(); i++ {
 		item := joinedItemsSR.SliceV.Index(i)
-		itemFieldKeyR, err := getFieldByName(item, r)
+		itemFieldKeyR, err := getFieldByName(item, rKey)
 		if err != nil {
 			return err
 		}
-		if itemFieldKeyR.Kind() == reflect.Slice {
+		if rSlice {
 			for i := 0; i < itemFieldKeyR.Len(); i++ {
 				key := itemFieldKeyR.Index(i).Interface()
 				if joinedItemsK[key] == nil {
@@ -108,46 +117,48 @@ func Join(input *JoinInput) error {
 		}
 	}
 
-	//
-	asSlice := asFieldInfo.Field.Type.Kind() == reflect.Slice
-	for i := 0; i < srcSR.SliceV.Len(); i++ {
-		item := srcSR.SliceV.Index(i)
-		itemFieldToJoin, err := getFieldByName(item, as)
+	//joining
+	for i := 0; i < lItems.SliceV.Len(); i++ {
+		item := lItems.SliceV.Index(i)
+		asField, err := getFieldByName(item, asKey)
 		if err != nil {
 			return err
 		}
-		itemFieldKeyL, err := getFieldByName(item, l)
+		lField, err := getFieldByName(item, lKey)
 		if err != nil {
 			return err
 		}
 
-		in := []interface{}{}
-		if itemFieldKeyL.Kind() == reflect.Slice {
-			for i := 0; i < itemFieldKeyL.Len(); i++ {
-				in = append(in, itemFieldKeyL.Index(i).Interface())
+		var lKeys []interface{}
+		if lSlice {
+			for i := 0; i < lField.Len(); i++ {
+				lKeys = append(lKeys, lField.Index(i).Interface())
 			}
 		} else {
-			in = append(in, itemFieldKeyL.Interface())
+			lKeys = append(lKeys, lField.Interface())
+		}
+		if len(lKeys) == 0 {
+			continue
 		}
 		var itemsToPush reflect.Value
 		if asSlice {
 			itemsToPush = reflect.MakeSlice(asFieldInfo.Field.Type, 0, 0)
 		}
-		for _, key := range in {
-			values := joinedItemsK[key]
-			jLen := len(values)
-			if values != nil && jLen > 0 {
+		for _, lKey := range lKeys {
+			values := joinedItemsK[lKey]
+			joinedLen := len(values)
+			if values != nil && joinedLen > 0 {
 				if asSlice {
 					for _, v := range values {
 						itemsToPush = reflect.Append(itemsToPush, v)
 					}
 				} else {
-					itemFieldToJoin.Set(values[0])
+					asField.Set(values[0])
 				}
 			}
 		}
 		if asSlice {
-			itemFieldToJoin.Set(itemsToPush)
+			asField.Set(itemsToPush)
 		}
 	}
 	return nil
