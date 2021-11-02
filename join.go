@@ -17,7 +17,7 @@ type JoinInput struct {
 }
 
 //Join makes join to selected struct field according to its "join" tag
-func Join(input *JoinInput) error {
+func Join(input JoinInput) error {
 	if input.Context == nil {
 		input.Context = context.Background()
 	}
