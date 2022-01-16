@@ -100,21 +100,19 @@ func Connect(ctx context.Context, uri string, dbName string) (*mongo.Database, e
 
 //NewCollection CollectionWrapper constructor
 func NewCollection(db *mongo.Database, collectionName string) *CollectionWrapper {
-	return &CollectionWrapper{Collection: db.Collection(collectionName)}
+	return &CollectionWrapper{db.Collection(collectionName)}
 }
 
 //CollectionWrapper mongo collection wrapper
-type CollectionWrapper struct {
-	Collection *mongo.Collection
-}
+type CollectionWrapper struct{ *mongo.Collection }
 
-//Create item in mongo
+//Create InsertOne wrapper that sets ID field after insert
 func (w *CollectionWrapper) Create(ctx context.Context, item interface{}) error {
 	f, err := getFieldByName(reflect.ValueOf(item), "ID")
 	if err != nil {
 		return err
 	}
-	r, err := w.Collection.InsertOne(ctx, item)
+	r, err := w.InsertOne(ctx, item)
 	if err != nil {
 		return err
 	}
@@ -122,22 +120,13 @@ func (w *CollectionWrapper) Create(ctx context.Context, item interface{}) error 
 	return nil
 }
 
-//CreateMany items
-func (w *CollectionWrapper) CreateMany(ctx context.Context, items []interface{}) ([]interface{}, error) {
-	res, err := w.Collection.InsertMany(ctx, items, options.InsertMany().SetOrdered(true))
-	if res != nil {
-		return res.InsertedIDs, err
-	}
-	return nil, err
-}
-
-// Update item. don't use when update is concurrent. it overwrites full db record.
+// Update UpdateOne wrapper that uses $set. don't use when update is concurrent. it overwrites full db record.
 func (w *CollectionWrapper) Update(ctx context.Context, item interface{}) error {
 	f, err := getFieldByName(reflect.ValueOf(item), "ID")
 	if err != nil {
 		return err
 	}
-	_, err = w.Collection.UpdateOne(ctx, &bson.M{
+	_, err = w.UpdateOne(ctx, &bson.M{
 		"_id": f.Interface(),
 	}, &bson.M{
 		"$set": item,
@@ -148,13 +137,13 @@ func (w *CollectionWrapper) Update(ctx context.Context, item interface{}) error 
 	return nil
 }
 
-//Read items to slice of struct
+//Read Find wrapper that extracts items to slice of struct
 func (w *CollectionWrapper) Read(ctx context.Context, result interface{}, where bson.M, optionItems ...*options.FindOptions) error {
 	sr, err := getSliceResult(result)
 	if err != nil {
 		return err
 	}
-	cur, err := w.Collection.Find(ctx, where, optionItems...)
+	cur, err := w.Find(ctx, where, optionItems...)
 	if err != nil {
 		return err
 	}
@@ -167,14 +156,14 @@ func (w *CollectionWrapper) Read(ctx context.Context, result interface{}, where 
 }
 
 func (w *CollectionWrapper) DeleteByID(ctx context.Context, ID primitive.ObjectID) error {
-	_, err := w.Collection.DeleteOne(ctx, bson.M{
+	_, err := w.DeleteOne(ctx, bson.M{
 		"_id": ID,
 	})
 	return err
 }
 
 func (w *CollectionWrapper) GetByID(ctx context.Context, result interface{}, ID primitive.ObjectID) error {
-	r := w.Collection.FindOne(ctx, bson.M{"_id": ID})
+	r := w.FindOne(ctx, bson.M{"_id": ID})
 	if r.Err() != nil {
 		return r.Err()
 	}
