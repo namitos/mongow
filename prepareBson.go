@@ -8,7 +8,7 @@ import (
 )
 
 func keyLooksLikeID(key string) bool {
-	return key == "_id" || strings.HasSuffix(key, "ID") || strings.HasSuffix(key, "IDs")
+	return key == "_id" || strings.HasSuffix(key, "_id") || strings.HasSuffix(key, "ID") || strings.HasSuffix(key, "IDs")
 }
 func anyKeyLooksLikeID(keys []string) bool {
 	for _, key := range keys {
