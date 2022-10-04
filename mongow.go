@@ -23,7 +23,7 @@ type sliceResult struct {
 func getSliceResult(result interface{}) (*sliceResult, error) {
 	sliceP := reflect.ValueOf(result)
 	if sliceP.Kind() != reflect.Ptr || sliceP.Elem().Kind() != reflect.Slice {
-		return nil, fmt.Errorf("result argument should be a ptr to slice of structs")
+		return nil, fmt.Errorf("getSliceResult: result argument should be a ptr to slice of structs")
 	}
 	sliceV := sliceP.Elem()
 	elemType := sliceV.Type().Elem()
@@ -33,7 +33,7 @@ func getSliceResult(result interface{}) (*sliceResult, error) {
 		sliceOfPtrs = true
 	}
 	if elemType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("result argument should be a ptr to slice of structs")
+		return nil, fmt.Errorf("getSliceResult: result argument should be a ptr to slice of structs")
 	}
 	return &sliceResult{
 		SliceOfPtrs: sliceOfPtrs,
@@ -45,14 +45,14 @@ func getSliceResult(result interface{}) (*sliceResult, error) {
 
 func getFieldByName(itemValue reflect.Value, name string) (reflect.Value, error) {
 	if itemValue.Kind() != reflect.Ptr {
-		return reflect.Value{}, fmt.Errorf("item should be a ptr to struct")
+		return reflect.Value{}, fmt.Errorf("getFieldByName: item should be a ptr to struct")
 	}
 	if itemValue.Elem().Kind() != reflect.Struct {
-		return reflect.Value{}, fmt.Errorf("item should be a ptr to struct")
+		return reflect.Value{}, fmt.Errorf("getFieldByName: item should be a ptr to struct")
 	}
 	f := itemValue.Elem().FieldByName(name)
 	if !f.IsValid() {
-		return reflect.Value{}, fmt.Errorf("item should have %v field", name)
+		return reflect.Value{}, fmt.Errorf("getFieldByName: item should have %v field", name)
 	}
 	return f, nil
 }
@@ -67,20 +67,20 @@ type structFieldInfo struct {
 func getStructFieldInfo(sr *sliceResult, fieldName string, bsonTagRequired bool, joinTagRequired bool) (*structFieldInfo, error) {
 	f, exists := sr.Type.FieldByName(fieldName)
 	if !exists {
-		return nil, fmt.Errorf("struct should have %v field", fieldName)
+		return nil, fmt.Errorf("getStructFieldInfo: struct should have %v field", fieldName)
 	}
 	fieldInfo := structFieldInfo{Field: f}
 	if bsonTagRequired {
 		bsonTag := strings.Split(f.Tag.Get("bson"), ",")
 		if len(bsonTag) == 0 {
-			return nil, fmt.Errorf("struct field %v should have bson tag", fieldName)
+			return nil, fmt.Errorf("getStructFieldInfo: field %v should have bson tag", fieldName)
 		}
 		fieldInfo.Tag = bsonTag
 	}
 	if joinTagRequired {
 		joinTag := strings.Split(f.Tag.Get("join"), ",")
 		if len(joinTag) < 2 {
-			return nil, fmt.Errorf("struct field %v should have join tag", fieldName)
+			return nil, fmt.Errorf("getStructFieldInfo: field %v should have join tag", fieldName)
 		}
 		fieldInfo.L = joinTag[0]
 		fieldInfo.R = joinTag[1]
@@ -88,7 +88,7 @@ func getStructFieldInfo(sr *sliceResult, fieldName string, bsonTagRequired bool,
 	return &fieldInfo, nil
 }
 
-//Connect Connect
+// Connect Connect
 func Connect(ctx context.Context, uri string, dbName string) (*mongo.Database, error) {
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
@@ -98,15 +98,15 @@ func Connect(ctx context.Context, uri string, dbName string) (*mongo.Database, e
 	return db, nil
 }
 
-//NewCollection CollectionWrapper constructor
+// NewCollection CollectionWrapper constructor
 func NewCollection(db *mongo.Database, collectionName string) *CollectionWrapper {
 	return &CollectionWrapper{db.Collection(collectionName)}
 }
 
-//CollectionWrapper mongo collection wrapper
+// CollectionWrapper mongo collection wrapper
 type CollectionWrapper struct{ *mongo.Collection }
 
-//Create InsertOne wrapper that sets ID field after insert
+// Create InsertOne wrapper that sets ID field after insert
 func (w *CollectionWrapper) Create(ctx context.Context, item interface{}) error {
 	f, err := getFieldByName(reflect.ValueOf(item), "ID")
 	if err != nil {
@@ -126,18 +126,14 @@ func (w *CollectionWrapper) Update(ctx context.Context, item interface{}) error 
 	if err != nil {
 		return err
 	}
-	_, err = w.UpdateOne(ctx, &bson.M{
-		"_id": f.Interface(),
-	}, &bson.M{
-		"$set": item,
-	})
+	_, err = w.UpdateByID(ctx, f.Interface(), &bson.M{"$set": item})
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-//Read Find wrapper that extracts items to slice of struct
+// Read Find wrapper that extracts items to slice of struct
 func (w *CollectionWrapper) Read(ctx context.Context, result interface{}, where bson.M, optionItems ...*options.FindOptions) error {
 	sr, err := getSliceResult(result)
 	if err != nil {
@@ -156,9 +152,7 @@ func (w *CollectionWrapper) Read(ctx context.Context, result interface{}, where 
 }
 
 func (w *CollectionWrapper) DeleteByID(ctx context.Context, ID primitive.ObjectID) error {
-	_, err := w.DeleteOne(ctx, bson.M{
-		"_id": ID,
-	})
+	_, err := w.DeleteOne(ctx, bson.M{"_id": ID})
 	return err
 }
 

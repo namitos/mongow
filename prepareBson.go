@@ -1,7 +1,9 @@
 package mongow
 
 import (
+	"fmt"
 	"log"
+	"reflect"
 	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -27,14 +29,14 @@ func tryObjectID(key string, parentKeys []string, value interface{}) (*primitive
 	if ok && len(v) == 24 {
 		ID, err := primitive.ObjectIDFromHex(v)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("tryObjectID:%v %v; %w", reflect.TypeOf(value), value, err)
 		}
 		return &ID, nil
 	}
 	return nil, nil
 }
 
-//PrepareBsonWhereFromInput recursive function that prepares ObjectID from suitable map fields
+// PrepareBsonWhereFromInput recursive function that prepares ObjectID from suitable map fields
 func PrepareBsonWhereFromInput(input map[string]interface{}, parentKeys ...string) {
 	if input == nil {
 		return
