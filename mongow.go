@@ -20,7 +20,7 @@ type sliceResult struct {
 	Type        reflect.Type
 }
 
-func getSliceResult(result interface{}) (*sliceResult, error) {
+func getSliceResult(result any) (*sliceResult, error) {
 	sliceP := reflect.ValueOf(result)
 	if sliceP.Kind() != reflect.Ptr || sliceP.Elem().Kind() != reflect.Slice {
 		return nil, fmt.Errorf("getSliceResult: result argument should be a ptr to slice of structs")
@@ -62,29 +62,38 @@ type structFieldInfo struct {
 	Tag   []string
 	L     string
 	R     string
+	Slice bool
 }
 
-func getStructFieldInfo(sr *sliceResult, fieldName string, bsonTagRequired bool, joinTagRequired bool) (*structFieldInfo, error) {
-	f, exists := sr.Type.FieldByName(fieldName)
+func getSliceStructFieldInfo(sr *sliceResult, fieldName string, bsonTagRequired bool, joinTagRequired bool) (*structFieldInfo, error) {
+	return getStructFieldInfo(sr.Type, fieldName, bsonTagRequired, joinTagRequired, sr.SliceOfPtrs)
+}
+
+func getStructFieldInfo(structType reflect.Type, fieldName string, bsonTagRequired bool, joinTagRequired bool, pointer bool) (*structFieldInfo, error) {
+	if pointer {
+		structType = structType.Elem()
+	}
+	f, exists := structType.FieldByName(fieldName)
 	if !exists {
-		return nil, fmt.Errorf("getStructFieldInfo: struct should have %v field", fieldName)
+		return nil, fmt.Errorf("getSliceStructFieldInfo: struct should have %v field", fieldName)
 	}
 	fieldInfo := structFieldInfo{Field: f}
 	if bsonTagRequired {
 		bsonTag := strings.Split(f.Tag.Get("bson"), ",")
 		if len(bsonTag) == 0 {
-			return nil, fmt.Errorf("getStructFieldInfo: field %v should have bson tag", fieldName)
+			return nil, fmt.Errorf("getSliceStructFieldInfo: field %v should have bson tag", fieldName)
 		}
 		fieldInfo.Tag = bsonTag
 	}
 	if joinTagRequired {
 		joinTag := strings.Split(f.Tag.Get("join"), ",")
 		if len(joinTag) < 2 {
-			return nil, fmt.Errorf("getStructFieldInfo: field %v should have join tag", fieldName)
+			return nil, fmt.Errorf("getSliceStructFieldInfo: field %v should have join tag", fieldName)
 		}
 		fieldInfo.L = joinTag[0]
 		fieldInfo.R = joinTag[1]
 	}
+	fieldInfo.Slice = fieldInfo.Field.Type.Kind() == reflect.Slice
 	return &fieldInfo, nil
 }
 
@@ -107,7 +116,7 @@ func NewCollection(db *mongo.Database, collectionName string) *CollectionWrapper
 type CollectionWrapper struct{ *mongo.Collection }
 
 // Create InsertOne wrapper that sets ID field after insert
-func (w *CollectionWrapper) Create(ctx context.Context, item interface{}) error {
+func (w *CollectionWrapper) Create(ctx context.Context, item any) error {
 	f, err := getFieldByName(reflect.ValueOf(item), "ID")
 	if err != nil {
 		return err
@@ -121,7 +130,7 @@ func (w *CollectionWrapper) Create(ctx context.Context, item interface{}) error 
 }
 
 // Update UpdateOne wrapper that uses $set. don't use when update is concurrent. it overwrites full db record.
-func (w *CollectionWrapper) Update(ctx context.Context, item interface{}) error {
+func (w *CollectionWrapper) Update(ctx context.Context, item any) error {
 	f, err := getFieldByName(reflect.ValueOf(item), "ID")
 	if err != nil {
 		return err
@@ -134,7 +143,7 @@ func (w *CollectionWrapper) Update(ctx context.Context, item interface{}) error 
 }
 
 // Read Find wrapper that extracts items to slice of struct
-func (w *CollectionWrapper) Read(ctx context.Context, result interface{}, where bson.M, optionItems ...*options.FindOptions) error {
+func (w *CollectionWrapper) Read(ctx context.Context, result any, where bson.M, optionItems ...*options.FindOptions) error {
 	sr, err := getSliceResult(result)
 	if err != nil {
 		return err
@@ -156,7 +165,7 @@ func (w *CollectionWrapper) DeleteByID(ctx context.Context, ID primitive.ObjectI
 	return err
 }
 
-func (w *CollectionWrapper) GetByID(ctx context.Context, ID primitive.ObjectID, result interface{}) error {
+func (w *CollectionWrapper) GetByID(ctx context.Context, ID primitive.ObjectID, result any) error {
 	r := w.FindOne(ctx, bson.M{"_id": ID})
 	if r.Err() != nil {
 		return r.Err()

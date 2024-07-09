@@ -21,7 +21,7 @@ func anyKeyLooksLikeID(keys []string) bool {
 	return false
 }
 
-func tryObjectID(key string, parentKeys []string, value interface{}) (*primitive.ObjectID, error) {
+func tryObjectID(key string, parentKeys []string, value any) (*primitive.ObjectID, error) {
 	if !(keyLooksLikeID(key) || anyKeyLooksLikeID(parentKeys)) {
 		return nil, nil
 	}
@@ -37,7 +37,7 @@ func tryObjectID(key string, parentKeys []string, value interface{}) (*primitive
 }
 
 // PrepareBsonWhereFromInput recursive function that prepares ObjectID from suitable map fields
-func PrepareBsonWhereFromInput(input map[string]interface{}, parentKeys ...string) {
+func PrepareBsonWhereFromInput(input map[string]any, parentKeys ...string) {
 	if input == nil {
 		return
 	}
@@ -55,7 +55,7 @@ func PrepareBsonWhereFromInput(input map[string]interface{}, parentKeys ...strin
 		}
 		//map
 		{
-			vMap, ok := value.(map[string]interface{})
+			vMap, ok := value.(map[string]any)
 			if ok {
 				PrepareBsonWhereFromInput(vMap, key)
 				input[key] = vMap
@@ -64,7 +64,7 @@ func PrepareBsonWhereFromInput(input map[string]interface{}, parentKeys ...strin
 		}
 		//slice
 		{
-			vSlice, ok := value.([]interface{})
+			vSlice, ok := value.([]any)
 			if ok {
 				for i, item := range vSlice {
 					//string
@@ -80,7 +80,7 @@ func PrepareBsonWhereFromInput(input map[string]interface{}, parentKeys ...strin
 					}
 					//map
 					{
-						vMap, ok := item.(map[string]interface{})
+						vMap, ok := item.(map[string]any)
 						if ok {
 							PrepareBsonWhereFromInput(vMap, key)
 							continue

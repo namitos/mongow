@@ -10,13 +10,13 @@ import (
 
 type JoinInput struct {
 	Context     context.Context
-	Src         interface{}
-	JoinedItems interface{}
+	Src         any
+	JoinedItems any
 	Field       string
 	Collection  *CollectionWrapper
 }
 
-//Join makes join to selected struct field according to its "join" tag
+// Join makes join to selected struct field according to its "join" tag
 func Join(input JoinInput) error {
 	if input.Context == nil {
 		input.Context = context.Background()
@@ -41,7 +41,7 @@ func Join(input JoinInput) error {
 		return err
 	}
 
-	asFieldInfo, err := getStructFieldInfo(lItems, asKey, false, true)
+	asFieldInfo, err := getSliceStructFieldInfo(lItems, asKey, false, true)
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func Join(input JoinInput) error {
 	lKey := asFieldInfo.L
 	rKey := asFieldInfo.R
 
-	lFieldInfo, err := getStructFieldInfo(lItems, lKey, false, false)
+	lFieldInfo, err := getSliceStructFieldInfo(lItems, lKey, false, false)
 	if err != nil {
 		return err
 	}
@@ -59,14 +59,14 @@ func Join(input JoinInput) error {
 	if err != nil {
 		return err
 	}
-	rFieldInfo, err := getStructFieldInfo(joinedItemsSR, rKey, true, false)
+	rFieldInfo, err := getSliceStructFieldInfo(joinedItemsSR, rKey, true, false)
 	if err != nil {
 		return err
 	}
 	rSlice := rFieldInfo.Field.Type.Kind() == reflect.Slice
 
 	//getting all keys
-	var lKeys []interface{}
+	var lKeys []any
 	for i := 0; i < lItems.SliceV.Len(); i++ {
 		item := lItems.SliceV.Index(i)
 		itemField, err := getFieldByName(item, lKey)
@@ -93,7 +93,7 @@ func Join(input JoinInput) error {
 	}
 
 	//indexing read result
-	joinedItemsK := map[interface{}][]reflect.Value{}
+	joinedItemsK := map[any][]reflect.Value{}
 	for i := 0; i < joinedItemsSR.SliceV.Len(); i++ {
 		item := joinedItemsSR.SliceV.Index(i)
 		itemFieldKeyR, err := getFieldByName(item, rKey)
@@ -129,7 +129,7 @@ func Join(input JoinInput) error {
 			return err
 		}
 
-		var lKeys []interface{}
+		var lKeys []any
 		if lSlice {
 			for i := 0; i < lField.Len(); i++ {
 				lKeys = append(lKeys, lField.Index(i).Interface())
