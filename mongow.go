@@ -78,20 +78,20 @@ func getStructFieldInfo(structType reflect.Type, fieldName string, bsonTagRequir
 	}
 	f, exists := structType.FieldByName(fieldName)
 	if !exists {
-		return nil, fmt.Errorf("getSliceStructFieldInfo: struct should have %v field", fieldName)
+		return nil, fmt.Errorf("getStructFieldInfo: struct should have %v field", fieldName)
 	}
 	fieldInfo := structFieldInfo{Field: f}
 	if bsonTagRequired {
 		bsonTag := strings.Split(f.Tag.Get("bson"), ",")
 		if len(bsonTag) == 0 {
-			return nil, fmt.Errorf("getSliceStructFieldInfo: field %v should have bson tag", fieldName)
+			return nil, fmt.Errorf("getStructFieldInfo: field %v should have bson tag", fieldName)
 		}
 		fieldInfo.Tag = bsonTag
 	}
 	if joinTagRequired {
 		joinTag := strings.Split(f.Tag.Get("join"), ",")
 		if len(joinTag) < 2 {
-			return nil, fmt.Errorf("getSliceStructFieldInfo: field %v should have join tag", fieldName)
+			return nil, fmt.Errorf("getStructFieldInfo: field %v should have join tag", fieldName)
 		}
 		fieldInfo.L = joinTag[0]
 		fieldInfo.R = joinTag[1]

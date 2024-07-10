@@ -84,7 +84,7 @@ func JoinG[SrcType, JoinedType any](ctx context.Context, src *[]SrcType, asKey s
 	lItem := new(SrcType)
 	lItemType := reflect.TypeOf(lItem)
 
-	asFieldInfo, err := getStructFieldInfo(lItemType, asKey, false, false)
+	asFieldInfo, err := getStructFieldInfo(lItemType, asKey, false, true)
 	if err != nil {
 		return nil, err
 	}
