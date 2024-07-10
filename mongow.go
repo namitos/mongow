@@ -66,11 +66,14 @@ type structFieldInfo struct {
 }
 
 func getSliceStructFieldInfo(sr *sliceResult, fieldName string, bsonTagRequired bool, joinTagRequired bool) (*structFieldInfo, error) {
-	return getStructFieldInfo(sr.Type, fieldName, bsonTagRequired, joinTagRequired, sr.SliceOfPtrs)
+	return getStructFieldInfo(sr.Type, fieldName, bsonTagRequired, joinTagRequired)
 }
 
-func getStructFieldInfo(structType reflect.Type, fieldName string, bsonTagRequired bool, joinTagRequired bool, pointer bool) (*structFieldInfo, error) {
-	if pointer {
+func getStructFieldInfo(structType reflect.Type, fieldName string, bsonTagRequired bool, joinTagRequired bool) (*structFieldInfo, error) {
+	if structType.Kind() == reflect.Pointer {
+		structType = structType.Elem()
+	}
+	if structType.Kind() == reflect.Pointer {
 		structType = structType.Elem()
 	}
 	f, exists := structType.FieldByName(fieldName)

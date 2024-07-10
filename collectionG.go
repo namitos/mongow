@@ -84,17 +84,17 @@ func JoinG[SrcType, JoinedType any](ctx context.Context, src *[]SrcType, asKey s
 	lItem := new(SrcType)
 	lItemType := reflect.TypeOf(lItem)
 
-	asFieldInfo, err := getStructFieldInfo(lItemType, asKey, false, false, true)
+	asFieldInfo, err := getStructFieldInfo(lItemType, asKey, false, false)
 	if err != nil {
 		return nil, err
 	}
-	lFieldInfo, err := getStructFieldInfo(lItemType, asFieldInfo.L, false, false, true)
+	lFieldInfo, err := getStructFieldInfo(lItemType, asFieldInfo.L, false, false)
 	if err != nil {
 		return nil, err
 	}
 
 	rItem := new(JoinedType)
-	rFieldInfo, err := getStructFieldInfo(reflect.TypeOf(rItem), asFieldInfo.R, true, false, true)
+	rFieldInfo, err := getStructFieldInfo(reflect.TypeOf(rItem), asFieldInfo.R, true, false)
 	if err != nil {
 		return nil, err
 	}
