@@ -2,15 +2,20 @@ package mongow
 
 import (
 	"context"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+	"log"
 	"reflect"
 )
 
-// NewCollectionG Collection constructor
-func NewCollectionG[T any](db *mongo.Database, collectionName string) *Collection[T] {
+// NewCollection Collection constructor
+func NewCollection[T any](db *mongo.Database, collectionName string) *Collection[T] {
+	item := new(T)
+	_, err := getFieldByName(reflect.ValueOf(*item), "ID") //check only pointer to struct
+	if err != nil {
+		log.Panicf("NewCollection: %v %v", collectionName, err)
+	}
 	return &Collection[T]{db.Collection(collectionName)}
 }
 
@@ -45,8 +50,12 @@ func (w *Collection[T]) Update(ctx context.Context, item T) error {
 }
 
 // Read Find wrapper that extracts items to slice of struct
-func (w *Collection[T]) Read(ctx context.Context, where bson.M, optionItems ...*options.FindOptions) ([]T, error) {
-	cur, err := w.Find(ctx, where, optionItems...)
+func (w *Collection[T]) Read(ctx context.Context, where bson.M, optionItems ...*options.FindOptionsBuilder) ([]T, error) {
+	opts := []options.Lister[options.FindOptions]{}
+	for _, optionItem := range optionItems {
+		opts = append(opts, optionItem)
+	}
+	cur, err := w.Find(ctx, where, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -59,25 +68,27 @@ func (w *Collection[T]) Read(ctx context.Context, where bson.M, optionItems ...*
 	return out, nil
 }
 
-func (w *Collection[T]) DeleteByID(ctx context.Context, ID primitive.ObjectID) error {
+func (w *Collection[T]) DeleteByID(ctx context.Context, ID bson.ObjectID) error {
 	_, err := w.DeleteOne(ctx, bson.M{"_id": ID})
 	return err
 }
 
-func (w *Collection[T]) GetByID(ctx context.Context, ID primitive.ObjectID, result T) error {
+func (w *Collection[T]) GetByID(ctx context.Context, ID bson.ObjectID) (T, error) {
+	itemPtr := new(T)
+	item := *itemPtr
 	r := w.FindOne(ctx, bson.M{"_id": ID})
 	if r.Err() != nil {
-		return r.Err()
+		return item, r.Err()
 	}
-	err := r.Decode(result)
+	err := r.Decode(item)
 	if err != nil {
-		return err
+		return item, err
 	}
-	return nil
+	return item, nil
 }
 
-// JoinG makes join to selected struct field according to its "join" tag
-func JoinG[SrcType, JoinedType any](ctx context.Context, src *[]SrcType, asKey string, collection *Collection[JoinedType]) ([]JoinedType, error) {
+// Join makes join to selected struct field according to its "join" tag
+func Join[SrcType, JoinedType any](ctx context.Context, src *[]SrcType, asKey string, collection *Collection[JoinedType]) ([]JoinedType, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
