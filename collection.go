@@ -11,8 +11,7 @@ import (
 
 // NewCollection Collection constructor
 func NewCollection[T any](db *mongo.Database, collectionName string) *Collection[T] {
-	item := new(T)
-	_, err := getFieldByName(reflect.ValueOf(*item), "ID") //check only pointer to struct
+	_, err := getFieldByName(reflect.New(reflect.TypeOf(new(T)).Elem().Elem()), "ID") //check only pointer to struct
 	if err != nil {
 		log.Panicf("NewCollection: %v %v", collectionName, err)
 	}
@@ -74,17 +73,16 @@ func (w *Collection[T]) DeleteByID(ctx context.Context, ID bson.ObjectID) error 
 }
 
 func (w *Collection[T]) GetByID(ctx context.Context, ID bson.ObjectID) (T, error) {
-	itemPtr := new(T)
-	item := *itemPtr
+	item := new(T)
 	r := w.FindOne(ctx, bson.M{"_id": ID})
 	if r.Err() != nil {
-		return item, r.Err()
+		return *item, r.Err()
 	}
 	err := r.Decode(item)
 	if err != nil {
-		return item, err
+		return *item, err
 	}
-	return item, nil
+	return *item, nil
 }
 
 // Join makes join to selected struct field according to its "join" tag

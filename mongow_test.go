@@ -3,6 +3,7 @@ package mongow
 import (
 	"context"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"log"
 	"testing"
 )
 
@@ -40,6 +41,13 @@ func TestAll(t *testing.T) {
 	if tInstance1.ID.IsZero() {
 		t.Error("tInstance1.ID should not be zero")
 	}
+
+	tInstance1FromDb, err := collection1.GetByID(context.Background(), tInstance1.ID)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	log.Println("tInstance1FromDb", tInstance1FromDb)
 
 	collection2 := NewCollection[*testType2](db, "testCollection2")
 	tInstance2 := &testType2{
