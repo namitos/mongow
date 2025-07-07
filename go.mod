@@ -1,4 +1,4 @@
-module github.com/namitos/mongow
+module github.com/namitos/mongow/v2
 
 go 1.23.0
 
